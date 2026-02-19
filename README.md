@@ -8,6 +8,10 @@ install :
 
 npm install
 
+```
+
+```txt
+
 start :
 
 npm run dev
