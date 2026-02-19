@@ -222,6 +222,156 @@ export const BUILTIN_TOOLS: Tool[] = [
       },
     },
   },
+  {
+    name: 'apply_diff',
+    description: 'Apply diff changes to a file using SEARCH/REPLACE blocks',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'File path to modify' },
+        diff: { type: 'string', description: 'Diff content with SEARCH/REPLACE blocks' },
+      },
+      required: ['path', 'diff'],
+    },
+  },
+  {
+    name: 'insert_lines',
+    description: 'Insert lines at a specific line number',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'File path to modify' },
+        line_number: { type: 'number', description: 'Line number to insert at (1-based)' },
+        content: { type: 'string', description: 'Content to insert' },
+      },
+      required: ['path', 'line_number', 'content'],
+    },
+  },
+  {
+    name: 'delete_lines',
+    description: 'Delete lines starting from a specific line number',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'File path to modify' },
+        line_number: { type: 'number', description: 'Line number to start deleting from (1-based)' },
+        count: { type: 'number', description: 'Number of lines to delete' },
+      },
+      required: ['path', 'line_number', 'count'],
+    },
+  },
+  {
+    name: 'create_task',
+    description: 'Create a new task with todo list',
+    parameters: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Task title' },
+        description: { type: 'string', description: 'Task description (optional)' },
+        todos: { 
+          type: 'array', 
+          description: 'Initial todo list',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              content: { type: 'string' },
+              status: { type: 'string', enum: ['pending', 'in_progress', 'done', 'blocked', 'skipped'] },
+              depends_on: { type: 'array', items: { type: 'string' } },
+              auto_execute: { type: 'boolean' }
+            }
+          }
+        },
+      },
+      required: ['title'],
+    },
+  },
+  {
+    name: 'update_todo',
+    description: 'Update todo status or content',
+    parameters: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string', description: 'Task ID' },
+        todo_id: { type: 'string', description: 'Todo ID' },
+        status: { type: 'string', enum: ['pending', 'in_progress', 'done', 'blocked', 'skipped'] },
+        content: { type: 'string', description: 'Modified content (optional)' },
+        result: { type: 'string', description: 'Execution result summary (optional)' },
+      },
+      required: ['task_id', 'todo_id'],
+    },
+  },
+  {
+    name: 'add_todo',
+    description: 'Add new todo dynamically',
+    parameters: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string', description: 'Task ID' },
+        todo: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            content: { type: 'string' },
+            status: { type: 'string', enum: ['pending', 'in_progress', 'done', 'blocked', 'skipped'] },
+            depends_on: { type: 'array', items: { type: 'string' } },
+            auto_execute: { type: 'boolean' }
+          },
+          required: ['id', 'content']
+        },
+      },
+      required: ['task_id', 'todo'],
+    },
+  },
+  {
+    name: 'get_task_status',
+    description: 'Get overall task progress',
+    parameters: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string', description: 'Task ID' },
+      },
+      required: ['task_id'],
+    },
+  },
+  {
+    name: 'request_user_input',
+    description: 'Request user input/choice/confirmation',
+    parameters: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string', description: 'Task ID' },
+        question: { type: 'string', description: 'Question content' },
+        options: { type: 'array', items: { type: 'string' }, description: 'Options (optional)' },
+        type: { type: 'string', enum: ['text', 'choice', 'confirm', 'file'], default: 'text' },
+      },
+      required: ['task_id', 'question'],
+    },
+  },
+  {
+    name: 'create_checkpoint',
+    description: 'Create checkpoint waiting for user confirmation',
+    parameters: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string', description: 'Task ID' },
+        message: { type: 'string', description: 'Checkpoint description' },
+        show_context: { type: 'object', description: 'Context to show user (optional)' },
+      },
+      required: ['task_id', 'message'],
+    },
+  },
+  {
+    name: 'execute_next_todo',
+    description: 'Execute next pending auto-executable todo',
+    parameters: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string', description: 'Task ID' },
+      },
+      required: ['task_id'],
+    },
+  },
 ];
 
 export function getToolsForModel(model: string): any[] {

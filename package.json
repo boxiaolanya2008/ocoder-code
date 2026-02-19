@@ -12,23 +12,44 @@
     "start": "node dist/index.js",
     "link": "npm link"
   },
-  "keywords": ["cli", "ai", "coding", "assistant"],
+  "keywords": [
+    "cli",
+    "ai",
+    "coding",
+    "assistant"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "commander": "^11.1.0",
+    "@clack/prompts": "^1.0.1",
+    "@types/blessed": "^0.1.27",
     "axios": "^1.6.2",
-    "dotenv": "^16.3.1",
-    "inquirer": "^9.2.12",
+    "blessed": "^0.1.81",
+    "boxen": "^5.1.2",
     "chalk": "^4.1.2",
-    "ora": "^5.4.1",
+    "cli-highlight": "^2.1.11",
+    "cli-table3": "^0.6.5",
+    "commander": "^11.1.0",
+    "dotenv": "^16.3.1",
+    "gradient-string": "^3.0.0",
+    "highlight.js": "^11.9.0",
+    "ink": "^6.8.0",
+    "ink-big-text": "^2.0.0",
+    "ink-gradient": "^4.0.0",
+    "ink-spinner": "^5.0.0",
+    "inquirer": "^9.2.12",
     "marked": "^11.1.0",
-    "highlight.js": "^11.9.0"
+    "ora": "^5.4.1",
+    "picocolors": "^1.1.1",
+    "react": "^19.2.4",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/node": "^20.10.5",
     "@types/inquirer": "^9.0.7",
-    "typescript": "^5.3.3",
-    "ts-node": "^10.9.2"
+    "@types/node": "^20.10.5",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
   }
 }

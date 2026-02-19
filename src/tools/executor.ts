@@ -2,6 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { exec, spawn, ChildProcess } from 'child_process';
 import { promisify } from 'util';
+import { applyDiff, insertLines, deleteLines } from './diff';
+import { createTask, updateTodo, addTodo, getTaskStatus, requestUserInput, createCheckpoint, executeNextTodo } from './taskmanager';
 
 const execAsync = promisify(exec);
 
@@ -384,6 +386,36 @@ export async function executeTool(name: string, args: any): Promise<ToolResult> 
     
     case 'tree':
       return { success: true, output: generateFileTree(args.path || '.', args.depth || 3) };
+    
+    case 'apply_diff':
+      return await applyDiff(args.path, args.diff);
+    
+    case 'insert_lines':
+      return await insertLines(args.path, args.line_number, args.content);
+    
+    case 'delete_lines':
+      return await deleteLines(args.path, args.line_number, args.count);
+    
+    case 'create_task':
+      return await createTask(args.title, args.description, args.todos);
+    
+    case 'update_todo':
+      return await updateTodo(args.task_id, args.todo_id, args);
+    
+    case 'add_todo':
+      return await addTodo(args.task_id, args.todo);
+    
+    case 'get_task_status':
+      return await getTaskStatus(args.task_id);
+    
+    case 'request_user_input':
+      return await requestUserInput(args.task_id, args.question, args.options, args.type);
+    
+    case 'create_checkpoint':
+      return await createCheckpoint(args.task_id, args.message, args.show_context);
+    
+    case 'execute_next_todo':
+      return await executeNextTodo(args.task_id);
     
     default:
       return { success: false, output: '', error: `Unknown tool: ${name}` };

@@ -1,5 +1,7 @@
 import { marked, Renderer } from 'marked';
 import hljs from 'highlight.js';
+import { highlight, supportsLanguage } from 'cli-highlight';
+import chalk from 'chalk';
 
 let lastRendered = '';
 
@@ -10,9 +12,15 @@ marked.setOptions({
 
 const renderer = new Renderer();
 renderer.code = function(code: string, lang?: string): string {
-  const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
-  const highlighted = hljs.highlight(code, { language }).value;
-  return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
+  try {
+    const highlighted = highlight(code, {
+      language: lang || 'javascript',
+      ignoreIllegals: true,
+    });
+    return `<pre><code class="cli-highlight">${highlighted}</code></pre>`;
+  } catch {
+    return `<pre><code>${code}</code></pre>`;
+  }
 };
 marked.use({ renderer });
 
@@ -25,11 +33,18 @@ export async function renderMarkdown(content: string): Promise<void> {
 function htmlToAnsi(html: string): string {
   let result = html;
 
-  result = result.replace(/<pre><code class="hljs language-(\w+)">([\s\S]*?)<\/code><\/pre>/g, (_, lang, code) => {
-    return code
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&amp;/g, '&');
+  // Handle cli-highlight code blocks (already ANSI colored)
+  result = result.replace(/<pre><code class="cli-highlight">([\s\S]*?)<\/code><\/pre>/g, (_, code) => {
+    return '\n' + chalk.gray('─'.repeat(60)) + '\n' +
+           code.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&') +
+           '\n' + chalk.gray('─'.repeat(60)) + '\n';
+  });
+
+  // Handle regular code blocks
+  result = result.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g, (_, code) => {
+    return '\n' + chalk.gray('─'.repeat(60)) + '\n' +
+           chalk.cyan(code.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')) +
+           '\n' + chalk.gray('─'.repeat(60)) + '\n';
   });
 
   result = result.replace(/<strong>(.*?)<\/strong>/g, '\x1b[1m$1\x1b[0m');

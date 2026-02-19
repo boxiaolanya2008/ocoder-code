@@ -94,6 +94,7 @@ export class ApiClient {
           parameters: tool.parameters,
         },
       }));
+      body.tool_choice = 'auto';
     }
 
     if (stream) {

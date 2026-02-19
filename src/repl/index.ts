@@ -3,11 +3,12 @@ import { createApiClient, Message } from '../api';
 import { getToolsForModel } from '../tools';
 import { executeTool, parseToolCalls } from '../tools/executor';
 import { renderMarkdown } from '../ui/renderer';
-import { showStatus } from '../ui/status';
+import { showWelcome } from '../ui/display';
+import { cli, CLIFacade } from '../ui/facade';
+import modernUI from '../ui/modern';
 import { saveSession, loadSession, listSessions, deleteSession, SessionData } from '../session';
 import * as readline from 'readline';
 import chalk from 'chalk';
-import ora from 'ora';
 
 const SLASH_COMMANDS = [
   { name: '/help', description: 'Show available commands' },
@@ -44,7 +45,7 @@ export async function runPrompt(prompt: string, options: RunOptions): Promise<vo
 
   const tools = options.agent ? getToolsForModel(options.model || 'deepseek-chat') : undefined;
 
-  const spinner = ora('Thinking...').start();
+  const spinner = modernUI.spinner.start('Thinking...');
 
   try {
     const result = await api.chat(messages, tools, false);
@@ -76,22 +77,26 @@ export async function runInteractive(options: RunOptions): Promise<void> {
       currentSession = loaded;
       sessionMessages = loaded.messages;
     } else {
-      console.log(chalk.yellow(`Session ${options.resumeSessionId} not found, creating new session`));
+      cli.log.error(`Session ${options.resumeSessionId} not found, creating new session`, 'Session');
       currentSession = createNewSession(model);
     }
   } else {
     currentSession = createNewSession(model);
   }
 
-  console.log(chalk.cyan('ocoder-code v1.0.0'));
-  console.log(chalk.gray(`Model: ${model}`));
-  console.log(chalk.gray(`Session: ${currentSession.id}`));
-  console.log(chalk.gray('Type /help for available commands\n'));
+  // Use modern UI
+  modernUI.banner();
+  modernUI.welcomeBox(config.model, currentSession.id);
 
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    prompt: chalk.green('> '),
+    prompt: chalk.cyan('❯ '),
+    completer: (line: string) => {
+      const commands = SLASH_COMMANDS.map(cmd => cmd.name);
+      const hits = commands.filter(cmd => cmd.startsWith(line));
+      return [hits.length ? hits[0] : line, line];
+    }
   });
 
   rl.on('line', async (input) => {
@@ -111,7 +116,7 @@ export async function runInteractive(options: RunOptions): Promise<void> {
 
     sessionMessages.push({ role: 'user', content: line });
 
-    const spinner = ora('Thinking...').start();
+    const spinner = modernUI.spinner.start('Thinking...');
 
     try {
       const config = await loadConfig();
@@ -121,47 +126,58 @@ export async function runInteractive(options: RunOptions): Promise<void> {
       let result = await api.chat(sessionMessages, tools, false);
       spinner.stop();
 
+      // Record token usage if available
+      const usage = (result.response as any).usage;
+      if (usage) {
+        cli.recordTokenUsage(
+          usage.prompt_tokens || 0,
+          usage.completion_tokens || 0,
+          model,
+          'chat'
+        );
+      }
+
       const rawChoice = (result.response as any).choices?.[0];
       const rawMessage = rawChoice?.message;
       
-      if (!rawMessage?.content && !rawMessage?.tool_calls) {
+      let fullContent = rawMessage?.content || '';
+      let toolCalls: any[] = rawMessage?.tool_calls || [];
+      
+      if (!fullContent && toolCalls.length === 0) {
         console.log(chalk.yellow('No response from API'));
         rl.prompt();
         return;
       }
 
-      const toolCalls = rawMessage?.tool_calls || [];
-      const xmlToolCalls = parseToolCalls(rawMessage?.content || '');
-
-      if (rawMessage.content) {
-        const textContent = rawMessage.content.replace(/<\w+>[\s\S]*?<\/\w+>/g, '').trim();
-        if (textContent) {
-          console.log();
-          await renderMarkdown(textContent);
-          console.log();
-        }
-      }
+      const xmlToolCalls = parseToolCalls(fullContent || '');
 
       while (toolCalls.length > 0 || xmlToolCalls.length > 0) {
         console.log();
         
         for (const toolCall of toolCalls) {
-          console.log(chalk.gray(`* Tool: ${toolCall.function?.name}`));
+          const toolName = toolCall.function?.name || 'Unknown';
+          modernUI.toolStart(toolName);
+          
           try {
             const funcArgs = toolCall.function?.arguments;
             const args = typeof funcArgs === 'string' ? JSON.parse(funcArgs) : funcArgs || {};
-            const result = await executeTool(toolCall.function.name, args);
+            const result = await executeTool(toolName, args);
             const output = result.success ? result.output : `[Error] ${result.error}`;
-            console.log(chalk.gray(`  -> ${output}`));
+            
+            if (result.success) {
+              modernUI.toolSuccess(toolName);
+            } else {
+              modernUI.toolError(toolName, result.error || 'Unknown error');
+            }
 
             sessionMessages.push({
               role: 'assistant',
-              content: rawMessage.content || '',
-              toolCalls: [{
+              content: fullContent || '',
+              toolCalls: toolCall.id ? [{
                 id: toolCall.id,
                 type: 'function' as const,
                 function: toolCall.function,
-              }],
+              }] : [],
             });
             sessionMessages.push({
               role: 'user',
@@ -177,11 +193,15 @@ export async function runInteractive(options: RunOptions): Promise<void> {
         }
 
         for (const tc of xmlToolCalls) {
-          console.log(chalk.gray(`* XML Tool: ${tc.name}`));
+          modernUI.toolStart(tc.name);
           try {
             const result = await executeTool(tc.name, tc.args);
             const output = result.success ? result.output : `[Error] ${result.error}`;
-            console.log(chalk.gray(`  -> ${output}`));
+            if (result.success) {
+              modernUI.toolSuccess(tc.name);
+            } else {
+              modernUI.toolError(tc.name, result.error || 'Unknown error');
+            }
             
             sessionMessages.push({
               role: 'user',
@@ -209,24 +229,26 @@ export async function runInteractive(options: RunOptions): Promise<void> {
           toolCalls.push(...newToolCalls);
           xmlToolCalls.push(...newXmlToolCalls);
         } else {
-          console.log();
           if (nextRawMessage?.content) {
-            const cleanContent = nextRawMessage.content.replace(/<\w+>[\s\S]*?<\/\w+>/g, '').trim();
-            if (cleanContent) {
-              await renderMarkdown(cleanContent);
+            const textContent = nextRawMessage.content.replace(/<\w+>[\s\S]*?<\/\w+>/g, '').trim();
+            if (textContent) {
               console.log();
-              sessionMessages.push({ role: 'assistant', content: nextRawMessage.content });
+              await renderMarkdown(textContent);
+              console.log();
             }
           }
           break;
         }
       }
 
-      if (toolCalls.length === 0 && rawMessage?.content) {
-        console.log();
-        await renderMarkdown(rawMessage.content);
-        console.log();
-        sessionMessages.push({ role: 'assistant', content: rawMessage.content });
+      if (fullContent && toolCalls.length === 0 && xmlToolCalls.length === 0) {
+        const textContent = fullContent.replace(/<\w+>[\s\S]*?<\/\w+>/g, '').trim();
+        if (textContent) {
+          console.log();
+          await renderMarkdown(textContent);
+          console.log();
+        }
+        sessionMessages.push({ role: 'assistant', content: fullContent });
       }
 
       currentSession.messages = sessionMessages;
@@ -297,77 +319,86 @@ async function handleSlashCommand(input: string, rl: readline.Interface): Promis
       }
       break;
     case '/status':
-      showStatus(currentSession);
+      if (currentSession) {
+        modernUI.statusBox('Session', [
+          ['ID', currentSession.id.slice(0, 20) + '...'],
+          ['Model', currentSession.model],
+          ['Messages', currentSession.messages.length.toString()],
+          ['Created', new Date(currentSession.createdAt).toLocaleString()],
+        ]);
+        
+        // Show token stats
+        const stats = cli.tokenStats.getStats();
+        modernUI.tokenStats({
+          totalCalls: stats.totalCalls,
+          totalTokens: stats.totalTokens,
+          promptTokens: stats.totalPromptTokens,
+          completionTokens: stats.totalCompletionTokens,
+          averagePerCall: stats.averagePerCall,
+        });
+      }
+      break;
+    case '/help':
+      modernUI.help();
       break;
     case '/sessions':
       const sessions = listSessions();
-      console.log(chalk.cyan('\nSessions:'));
-      sessions.forEach(s => {
-        console.log(`  ${s.id} - ${s.model} - ${new Date(s.updatedAt).toLocaleString()}`);
-      });
-      console.log();
+      if (sessions.length === 0) {
+        console.log(chalk.gray('  No saved sessions\n'));
+      } else {
+        modernUI.statusBox('Sessions', sessions.map(s => [
+          'ID',
+          `${s.id.slice(0, 16)}... (${s.model})`
+        ]) as [string, string][]);
+      }
       break;
     case '/resume':
       const allSessions = listSessions();
-      console.log(chalk.cyan('\nAvailable sessions:'));
-      allSessions.forEach(s => console.log(`  ${s.id}`));
-      console.log();
+      if (allSessions.length === 0) {
+        console.log(chalk.gray('  No sessions to resume\n'));
+      } else {
+        modernUI.statusBox('Available Sessions', allSessions.map(s => [
+          'ID',
+          s.id.slice(0, 20) + '...'
+        ]) as [string, string][]);
+      }
       break;
     case '/delete':
       if (arg) {
         if (deleteSession(arg)) {
-          console.log(chalk.gray(`Session ${arg} deleted.\n`));
+          modernUI.success(`Session ${arg} deleted`);
         } else {
-          console.log(chalk.yellow(`Session ${arg} not found.\n`));
+          modernUI.error(`Session ${arg} not found`);
         }
       } else {
-        console.log(chalk.yellow('Usage: /delete <session-id>\n'));
+        modernUI.warn('Usage: /delete <session-id>');
       }
       break;
     case '/init':
-      console.log(chalk.gray('OCODER.md would be initialized here.\n'));
+      modernUI.info('Run "ocoder-code init" to initialize OCODER.md');
       break;
     case '/config':
-      console.log(chalk.gray('Config menu would open here.\n'));
+      modernUI.info('Run "ocoder-code config" to manage configuration');
       break;
     case '/exit':
     case '/quit':
       rl.close();
       return;
     default:
-      console.log(chalk.yellow(`Unknown command: ${cmd}. Type /help for available commands.\n`));
+      modernUI.warn(`Unknown command: ${cmd}. Type /help for available commands.`);
   }
 
   rl.prompt();
 }
 
 function getSystemPrompt(model: string): string {
-  return `You are ocoder-code, an AI coding assistant.
+  return `You are ocoder-code, an AI coding assistant. Help the user with their request.
 
-IMPORTANT - Project Analysis Rules:
-When analyzing a project, you MUST:
-1. First use "Glob" to get full file list
-2. Then use "Read" to read key files (package.json, tsconfig.json, src/**/*.ts)
-3. Collect ALL information before responding
-4. Generate a comprehensive analysis report in ONE response
+You can:
+- Create files by describing what should be in them
+- Run shell commands by describing them
+- Read and modify existing files
+- Answer questions about code
 
-Do NOT respond with partial analysis. Make all tool calls first, then provide the complete report.
-
-Tool Usage Rules:
-- Use "Read" tool for file contents, NEVER use "Bash" with "head" or "cat"
-- Use "Glob" tool for file listing
-- Use "Tree" tool for directory structure
-- Use "Grep" tool for code search
-- Use "Bash" only for npm, git, etc.
-
-Available tools:
-- Read: Read files from the filesystem
-- Glob: List files matching a pattern
-- Tree: Generate directory tree view
-- Grep: Search for content in files
-- Bash: Execute shell commands
-- Edit: Perform string replacements in files
-- Write: Write or overwrite files
-
-Be helpful, concise, and focus on writing high-quality code.`;
+Be direct and helpful. Do not ask unnecessary questions.`;
 }
