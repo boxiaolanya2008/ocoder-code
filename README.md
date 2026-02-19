@@ -59,10 +59,20 @@ cd ocoder-code
 # Install dependencies
 npm install
 
+<<<<<<< HEAD
 # Start interactive mode
+=======
+```
+
+```txt
+
+start :
+
+>>>>>>> fcbd5c7798d6204bc5e11b268ec4e84eaca00140
 npm run dev
 ```
 
+<<<<<<< HEAD
 ---
 
 ## 📖 Usage
@@ -230,3 +240,6 @@ MIT License - see the [LICENSE](LICENSE) file for details.
 Made with ❤️ by [boxiaolanya2008](https://github.com/boxiaolanya2008)
 
 </div>
+=======
+```
+>>>>>>> fcbd5c7798d6204bc5e11b268ec4e84eaca00140
