@@ -13,8 +13,6 @@
 
 > 🤖 AI-powered coding assistant for modern developers
 
-[English](README.md) | [中文](README.zh.md)
-
 </div>
 
 ---
@@ -240,6 +238,3 @@ MIT License - see the [LICENSE](LICENSE) file for details.
 Made with ❤️ by [boxiaolanya2008](https://github.com/boxiaolanya2008)
 
 </div>
-=======
-```
->>>>>>> fcbd5c7798d6204bc5e11b268ec4e84eaca00140
