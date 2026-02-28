@@ -1,0 +1,16 @@
+{
+  "provider": {
+    "type": "openai-compatible",
+    "baseURL": "https://api.openai.com/v1",
+    "model": "gpt-4.1-mini",
+    "apiKeyEnv": "OPENAI_API_KEY"
+  },
+  "agent": {
+    "systemPrompt": "You are Ocoder, an AI coding agent. Be practical, concise, and safe.",
+    "maxTurns": 30
+  },
+  "shell": {
+    "enabled": true,
+    "timeoutMs": 120000
+  }
+}
