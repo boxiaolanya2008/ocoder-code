@@ -1,5 +1,5 @@
 {
-  "name": "ocoder",
+  "name": "Ocoder CLI",
   "version": "0.1.0",
   "description": "Ocoder CLI - from-scratch AI coding agent",
   "type": "module",
@@ -17,6 +17,7 @@
     "node": ">=20"
   },
   "devDependencies": {
+    "@types/node": "^25.3.2",
     "typescript": "^5.8.2"
   }
 }
